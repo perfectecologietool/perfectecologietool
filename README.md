@@ -1,4 +1,4 @@
-- 👋 Hi, I’m Rajkumar,
+- 👋 Hi,
 - 👀 I’m interested in Christian Theology, Maths, Ecology,  Economics, Linux, BSD, andh historic + pre-historic cultural religions. 
 - 🌱 I’m currently learning Maths, Javascript, Php, maybe Rust, C, 
 - 💞️ I’m looking to collaborate on International economics, and theology. 
