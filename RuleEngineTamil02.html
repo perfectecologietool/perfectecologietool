@@ -1,0 +1,261 @@
+<html><head></head>
+<body>
+<script>
+
+class Rule7dEngine{
+//08/october/2023
+// The rule should have  verb, subject, object
+//which is like subject has self-center and (can do verb?)
+// object has self-center and (can be acted on?)
+//speaker and listener observe subject acting on object
+//tetrahedron shines on tetrahedron 
+//09/oct/2023
+//That means that a 'verb' has a subject and an object. 
+//eg: shines has source and destination. 
+//the 7d(or8) 'rule' "tetrahedron shines light on tetrahedron" or "light shines" from a to b, or "a shines light to b" 
+//is a interslice edge:
+//the interslice edge is also between point to point and time to time. 
+//--------------- 
+//  an 8d holds multiple 'rules' which still do the original rule. I.E.: a shines light to b : {a sends photon to b; b recieves photon from a; photon travels from a to b; a emits photon of wavelengths.  } 
+//and a 9d holds the same 8d rules but in different langauges. 
+//
+//new commandment is defined by 10 commandments
+//each of 10 commandments is defined by multiple torah.
+//and across the dimension of language 
+//the 10 commandments drift across that dimension, where their base is the new commandment. 
+//001 (verb) love (case) (noun object) one (adjective) another
+//002 as Jesus (subject) loved(verb) them (object) 
+//The center of the tetrahedron can be male or female
+//so if the tetrahedron was produced, and has its source, that is, in time its center has older nodes
+// the rule "001" is based on rule "002"
+// strictly: Jesus loved disciples and each disciple love one another.
+//another therefore is not simply noun adjective differentiating the subject from the object. A "reciprocal pronoun" meaning it recieves and it gives. 
+//This reciprocity applies to all of the 10 commandments: 
+ //[noun subject b ] [verb] [noun object c ] [power and work] as [noun subject a] [verb] [noun object b] 
+ //11/10/23
+//7D God's commandments, spoken by God. = sentence by speaker for observer of both described and description.
+//8D = similar sentences = pertinant sentences
+//9D = languages
+//10D = javascript rule engine and written script. 
+//Tamil|Hebrew word = {root: ""; case: ""} 
+//case = { amountOfPrefixes; amountofSuffixes; Prefixes[(in order of attachment)]; suffixes[inorderofattachlement)];
+//Tamil sentence = {verb, subject, object}
+//Tamil verb = word.case = [ | | }
+//Tamil subject = word.case = [ | | }
+//Tamil object = word.case = [ | | }
+// 8D = {english, tamil, hebrew, greek} 
+
+
+
+
+
+constructor(){
+//word is associated as key to value of function. 
+	this.keywords = {
+"if" : (condition, action) => {
+if(condition){
+action();
+}
+},
+//makes sense if you type it out again.
+"and" : (conditional1, conditional2) => {
+return conditional1 && conditional2;
+},
+"or" : (conditional1, conditional2) => {
+return conditional1 || conditional2;
+},
+};
+}
+
+createRule(sentence){
+const words = sentence.split(" ");
+let ruleFunction = () => true;//default rule
+
+for(let i = 0; i < words.length; i++){
+const word = words[i];
+if(this.keywords[words]){
+const nextWord = words[i + 1];
+const followingWord = words[i + 2];
+
+if(nextWord && followingWord && nextWord in this.keywords){
+//combine conditions using and ^ or
+ruleFunction = this.keywords[nextWord](ruleFunction, this.keywords[followingWord]);
+i += 2; //skip next two words.
+} else {
+// apply "if" condition. 
+const condition = words[i + 1];
+const action = words[i + 2];
+ruleFunction = this.keywords[word](condition === "true", () => this.executeAction(action));
+i += 2;
+}
+}
+}
+return ruleFunction;
+
+}
+
+executeAction(action){
+	console.log(`executing action: ${action}`);
+}
+
+}
+
+
+const ruleEngine = new Rule7dEngine();
+const rule = ruleEngine.createRule("if true and false then action1 or action2");
+console.log(rule());
+
+
+//12/october/2023
+// the rule "001" is based on rule "002"
+// strictly: Jesus loved disciples and each disciple love one another.
+//another therefore is not simply noun adjective differentiating the subject from the object. A "reciprocal pronoun" meaning it recieves and it gives. 
+//This reciprocity applies to all of the 10 commandments: 
+ //[noun subject b ] [verb] [noun object c ] [power and work] as [noun subject a] [verb] [noun object b] 
+ //11/10/23
+//7D God's commandments, spoken by God. = sentence by speaker for observer of both described and description.
+//
+//"let there be light" (there) (light) =4D+jennymomentum
+//
+//8D = similar sentences = pertinant sentences
+//9D = languages
+//10D = javascript rule engine and written script. 
+//Tamil|Hebrew word = {root: ""; case: ""} 
+//case = { amountOfPrefixes; amountofSuffixes; Prefixes[(in order of attachment)]; suffixes[inorderofattachlement)];
+//Tamil sentence = {verb, subject, object}
+//Tamil verb = word.case = [ | | }
+//Tamil subject = word.case = [ | | }
+//Tamil object = word.case = [ | | }
+// 8D = {english, tamil, hebrew, greek} 
+/* 12/10/2023 chatgpt made a sentence creator and a sentence dissasebler 
+====assembler:
+my prompt = "i want to create a sentence creator where words are structs and a simple sentence contains 3 words: a verb, a subject and an object. the sentence is able to contain different languages. a word holds both a root and an array for cases. so that the langauge may be Tamilk, Greek or hebrew, since these 3 languages ontain root and cases. A word may contain multiple case suffixes or case prefixes. The system manages one language at a time. 
+
+1) define a language class to represent the language, which holds infomration about the grammar such as cases, prefixes and suffixes. 
+2) define a word struct : 
+*) creat a word struct that contains : 
+**) word's root
+**) aray or object to store cases
+**) other relevant linguistic information  (gender) 
+3) Store vocabulary: 
+creat a covabulary for each language you intend to support. 
+*) words and their roots.  and associated cases . 
+**) in data structure or database
+4) Sentence Creation: 
+to create a sentence you select the appropriate word for the verb, subject and object from the vocabulary of the chosen language. 
+5) grammar rules
+implement rulse for sentence structure based on the language's grammar. For example you may beed to ensure that the subject and object aggtree with number of the verb. 
+6) translator class
+create a translator class that manages the current language in use. 
+this class handles the selection of words from the vocabulary and the application of cases or transformations. 
+
+*/
+class Language {
+constructor(name){
+this.name = name;
+this.cases = ['Nominative', 'accusative', 'dative', 'genitive'];
+}
+}
+
+class word{
+constructor(root){
+this.root = root;
+this.cases = {};
+}
+addCase(caseName, formd){
+this.cases[caseName] = formd;
+}
+
+}
+
+class SentenceCreator {
+constructor(){
+this.currentLanguage = null;
+this.vocabulary = {};
+}
+setLanguage(language){
+this.currentLanguage = language;
+}
+
+createSentence(verb, subject, object){
+if(!this.currentLanguage){
+throw new Error("language not selected");
+}
+const sentence = `${subject.root} ${subject.cases.genitive} ${verb.root} ${object.root} ${object.cases.Accusative}`;
+return sentence;
+}
+}
+
+
+//example: 
+const tamil = new Language('tamil');
+const creatr = new SentenceCreator();
+const verb = new word('olithathu');
+verb.addCase('Nominative', '');
+const subject = new word('palliku');
+subject.addCase('genitive', "ukku");
+const object = new word('periya');
+object.addCase('accusative', 'kal');
+
+creatr.setLanguage(tamil);
+const sempens = creatr.createSentence(verb, subject, object);
+console.log(sempens);
+
+//The need to BUild base minimum vocabulary,  and Store the Vocabulary as it is built. 
+
+
+/// 12/10/23
+/// Sentence Parser
+///
+///
+/* 1) tokenization: 
+tokenize the tamil sentence into single words
+use whitepace as delimiter
+2) Parsing: 
+for each word, analyze the suffix to identify the case (nominative, accusative, etc) 
+based on the identified case, categorize the word as verb subject or object
+3) Create Word Structs
+based on step2 categorization, create the word structs for the verb subjet and object. populate root of each word struct with the base form of the world. 
+4) apply cases: 
+for the subbjet and object words, apply the approirate cases identified in the sentence.
+*/
+/* FALISE AT identifyCaseSuffix()
+function parseTamilSentence(sentence) {
+const words = sentence.split(' ');
+let verb = null;
+let subject = null;
+let object = null;
+for (const word of words){
+//analyze the contents of each word for cases and roots. //use language specific rules or your dictionary
+//let's assume this is all contained within identifycasesuffix(word);
+const caseSuffix = identifyCaseSuffixes(word);
+//categorize the word based on the identified case suffix:
+if(caseSuffix === 'nominative'){
+subject = new Word(word);
+subject.cases.Nominative = caseSuffix;
+}else if (caseSuffix === 'Accusative'){
+object = new Word(word);
+object.cases.Accusative = caseSuffix;
+}else if (caseSuffix === 'Dative'){
+//Handle the Dative case if needed.
+} else if(caseSuffix === 'genitive'){
+
+}else{
+// assume all other words are part of the verb.
+if(!verb){
+verb = new Word(word);
+}
+verb.root += `${word}`;
+}
+}
+return {verb, subject, object};
+}
+
+const tamilSentenec = "palliku periya kulanthaikal olithathu";
+const {verb, subject, object} = parseTamilSentence(tamilsentenec);
+console.log('verb:', verb);
+console.log('subject',subject);
+console.log('object',object);
+*/
+
+</script></body></html>

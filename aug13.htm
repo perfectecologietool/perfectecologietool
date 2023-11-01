@@ -1,0 +1,130 @@
+<html><head>
+<style>
+body {background-color: #000000;
+ color: #ffffff;
+ }
+</style>
+<title>Spherical Test</title>
+
+</head>
+<body><button onclick="startermotor()">Start</button>
+<button onclick="endmotor()"> End </button><br>
+<button onclick="next()"> -----------NECT------ </button>
+<canvas id="mainCnvs1" width="1000px" height="1000px"></canvas>
+    <span id="lbl3"> </span>
+ 
+    <script src="RefDotFour.js"></script>
+<script src="RefLineFIVE.JS"></script>
+<script src="augRefTriangleThree.js"></script>
+<script src="augRefTetrahedronMuriTime.js"></script>
+<script src="augSphere1.js"></script>
+<script src="TimeCanvasFrame0309.js"></script>
+<script src="augSphericalCoordinate.js"></script>
+<script>
+let x9 = 0.1;
+var a1 = new RefTimeViewerFrame();
+a1.whitebackground();
+ let four = 19; let expo = 3;
+ printoutt(`the ${expo} root ${four} is ${wholeroot(four, expo,10)}`);
+ let sizeoflengths = 40;
+ let Tet1 = new SphTetrahed(sizeoflengths);
+Tet1.drawtetlines(a1, "Yellow"); 
+//Tet1.logger(); 
+
+
+Tet1.drawtetlines(a1, "Yellow"); 
+let freshtet2 = new SphTetrahed(sizeoflengths);
+//match2Tet(Tet1, freshtet2, 0);
+matchtwotets2(Tet1, freshtet2,0);
+freshtet2.drawtetlines(a1, "green");
+
+let freshtet3 = new SphTetrahed(sizeoflengths);
+matchtwotets2(Tet1, freshtet3,2);
+freshtet3.drawtetlines(a1, "#cb0cb0");
+
+let freshtet4 = new SphTetrahed(sizeoflengths);
+matchtwotets2(Tet1, freshtet4,1);
+freshtet4.drawtetlines(a1, "black");
+
+let freshtet9 = new SphTetrahed(sizeoflengths);
+matchtwotets2(Tet1, freshtet9,3);
+freshtet9.drawtetlines(a1, "blue");
+
+freshtet2.drawspokes(a1);
+freshtet3.drawspokes(a1);
+freshtet4.drawspokes(a1);
+freshtet9.drawspokes(a1);  
+
+let freshtet21  = new SphTetrahed(sizeoflengths);
+let freshtet22  = new SphTetrahed(sizeoflengths);
+let freshtet23  = new SphTetrahed(sizeoflengths);
+let freshtet24  = new SphTetrahed(sizeoflengths);
+matchtwotets2(freshtet2, freshtet21, 1);
+/*
+matchtwotets2(freshtet2, freshtet22, 2);
+matchtwotets2(freshtet2, freshtet23, 3);
+matchtwotets2(freshtet2, freshtet24, 0); 
+*/
+
+ let counterlimit = 33;
+ let counter = 0;
+// Tet1.logger();
+ 
+ function drawtet1lines(){
+
+//Why does the spin effect only work with this line? 
+// Tet1.drawtetlines(a1);
+console.log(`${x9}`);
+Tet1.drawspokes(a1);//draws points
+Tet1.spinAllByAzimuth(x9);//changes sphe coord
+Tet1.globalize_fromNodesToPoints(1);//updates points
+Tet1.drawspokes(a1);//draws points
+// a1.drawPixel(Tet1.centroid);
+ 
+matchtwotets2(Tet1, freshtet2,0);
+freshtet2.drawspokes(a1); 
+matchtwotets2(Tet1, freshtet4,1);
+freshtet4.drawspokes(a1); 
+matchtwotets2(Tet1, freshtet3,2);
+freshtet3.drawspokes(a1);
+matchtwotets2(Tet1, freshtet9,3); 
+freshtet9.drawspokes(a1); 
+
+matchtwotets2(freshtet2, freshtet21, 1);
+matchtwotets2(freshtet2, freshtet22, 2);
+matchtwotets2(freshtet2, freshtet23, 3);
+matchtwotets2(freshtet2, freshtet24, 0);
+freshtet21.drawspokes(a1);
+freshtet22.drawspokes(a1);
+freshtet23.drawspokes(a1);
+freshtet24.drawspokes(a1);
+
+// Tet1.spinAllByAzimuth(x9);x9+=x9;
+// Tet1.spinAllByInclination(); XXX
+ }
+ 
+</script> 
+<script>
+var ProcStack = [];
+function tickertape(){
+counter++;
+if(counter > counterlimit){endmotor();}
+a1.whitebackground();
+drawtet1lines();
+Tet1.logger();
+}
+ 
+function startermotor() {
+counter = 0;
+ProcStack.push(window.setInterval(tickertape, 50));
+}
+function endmotor () {
+clearInterval(ProcStack.pop());
+}
+</script>
+    </body>
+	This Program works for me to take still screen shots, because I first create the geometric object. Then i use the basic function of the lines to rotate around any point, and use the 'separate to the object' ability of the linerotation to display. The separate ability to rotate will ultimately extract itself into the sphere nodes This means there is a way for the 3 variables of xyz rotations, to map to the 2 spherical variables of inclination and ascension. <br>
+	Therefore 
+	
+	
+    </html>

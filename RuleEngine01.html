@@ -1,0 +1,108 @@
+<html><head></head>
+<body>
+<script>
+
+class Rule7dEngine{
+//08/october/2023
+// The rule should have  verb, subject, object
+//which is like subject has self-center and (can do verb?)
+// object has self-center and (can be acted on?)
+//speaker and listener observe subject acting on object
+//tetrahedron shines on tetrahedron 
+//09/oct/2023
+//That means that a 'verb' has a subject and an object. 
+//eg: shines has source and destination. 
+//the 7d(or8) 'rule' "tetrahedron shines light on tetrahedron" or "light shines" from a to b, or "a shines light to b" 
+//is a interslice edge:
+//the interslice edge is also between point to point and time to time. 
+//--------------- 
+//  an 8d holds multiple 'rules' which still do the original rule. I.E.: a shines light to b : {a sends photon to b; b recieves photon from a; photon travels from a to b; a emits photon of wavelengths.  } 
+//and a 9d holds the same 8d rules but in different langauges. 
+//
+//new commandment is defined by 10 commandments
+//each of 10 commandments is defined by multiple torah.
+//and across the dimension of language 
+//the 10 commandments drift across that dimension, where their base is the new commandment. 
+//001 (verb) love (case) (noun object) one (adjective) another
+//002 as Jesus (subject) loved(verb) them (object) 
+//The center of the tetrahedron can be male or female
+//so if the tetrahedron was produced, and has its source, that is, in time its center has older nodes
+// the rule "001" is based on rule "002"
+// strictly: Jesus loved disciples and each disciple love one another.
+//another therefore is not simply noun adjective differentiating the subject from the object. A "reciprocal pronoun" meaning it recieves and it gives. 
+//This reciprocity applies to all of the 10 commandments: 
+ //[noun subject b ] [verb] [noun object c ] [power and work] as [noun subject a] [verb] [noun object b] 
+ //11/10/23
+//7D God's commandments, spoken by God. = sentence by speaker for observer of both described and description.
+//8D = similar sentences = pertinant sentences
+//9D = languages
+//10D = javascript rule engine and written script. 
+//Tamil|Hebrew word = {root: ""; case: ""} 
+//case = { amountOfPrefixes; amountofSuffixes; Prefixes[(in order of attachment)]; suffixes[inorderofattachlement)];
+//Tamil sentence = {verb, subject, object}
+//Tamil verb = word.case = [ | | }
+//Tamil subject = word.case = [ | | }
+//Tamil object = word.case = [ | | }
+// 8D = {english, tamil, hebrew, greek} 
+
+
+
+
+
+constructor(){
+//word is associated as key to value of function. 
+	this.keywords = {
+"if" : (condition, action) => {
+if(condition){
+action();
+}
+},
+//makes sense if you type it out again.
+"and" : (conditional1, conditional2) => {
+return conditional1 && conditional2;
+},
+"or" : (conditional1, conditional2) => {
+return conditional1 || conditional2;
+},
+};
+}
+
+createRule(sentence){
+const words = sentence.split(" ");
+let ruleFunction = () => true;//default rule
+
+for(let i = 0; i < words.length; i++){
+const word = words[i];
+if(this.keywords[words]){
+const nextWord = words[i + 1];
+const followingWord = words[i + 2];
+
+if(nextWord && followingWord && nextWord in this.keywords){
+//combine conditions using and ^ or
+ruleFunction = this.keywords[nextWord](ruleFunction, this.keywords[followingWord]);
+i += 2; //skip next two words.
+} else {
+// apply "if" condition. 
+const condition = words[i + 1];
+const action = words[i + 2];
+ruleFunction = this.keywords[word](condition === "true", () => this.executeAction(action));
+i += 2;
+}
+}
+}
+return ruleFunction;
+
+}
+
+executeAction(action){
+	console.log(`executing action: ${action}`);
+}
+
+}
+
+
+const ruleEngine = new RuleEngine();
+const rule = ruleEngine.createRule("if true and false then action1 or action2");
+console.log(rule());
+
+</script></body></html>

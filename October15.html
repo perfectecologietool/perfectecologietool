@@ -1,0 +1,71 @@
+<html><head>
+<style>
+body {background-color: #000000;
+ color: #ffffff;
+ }
+</style>
+<title>Spherical Test</title>
+
+</head>
+<body><button onclick="startermotor()">Start</button>
+<button onclick="endmotor()"> End </button><br>
+<button onclick="next()"> -----------NECT------ </button>
+At this point you can see that the synchronicity of the actions upon the points, needs to be assured. Since printing one set of lines, rotating then printing the other set of lines, results in disconnect, which is not helpful when trying to find the pattern of the center net. 
+<canvas id="mainCnvs1" width="1000px" height="1000px"></canvas>
+    <span id="lbl3"> </span>
+ 
+    <script src="RefDotFive.js"></script>
+<script src="RefLineFIVE.JS"></script>
+<script src="RefTriangleFour.js"></script>
+<script src="RefTetrahedronMuriTime_oct23.js"></script>
+<script src="SpheTet.js"></script>
+<script src="TimeCanvasFrame0309.js"></script>
+<script src="augSphericalCoordinate.js"></script>
+
+<script src="freshbareminimum.js"></script>
+<script>
+//ERROR LOG
+var a1 = new RefTimeViewerFrame();
+// let TT1 = new SpheTet(100);
+let TTT1 = new FiveMuri5d(1000,5);
+a1.whitebackground(); 
+TTT1.tick();
+
+TTT1.tick();
+TTT1.display(a1);
+//TTT1.forLight(100,2);
+//TTT1.slices[0].ISAttraction();
+ let counterlimit = 33;
+ let counter = 0;
+// Tet1.logger();
+  
+  
+ 
+</script> 
+
+<script>
+var ProcStack = [];
+function tickertape(){
+//counter++;
+if(counter > counterlimit){endmotor();}
+a1.whitebackground(); 
+TTT1.tick();
+TTT1.display(a1);
+}
+
+function startermotor() {
+counter = 0;
+ProcStack.push(window.setInterval(tickertape, 50));
+}
+function endmotor () {
+clearInterval(ProcStack.pop());
+}
+</script>
+    </body>
+	This Program works for me to take still screen shots, because I first create the geometric object. Then i use the basic function of the lines to rotate around any point, and use the 'separate to the object' ability of the linerotation to display. The separate ability to rotate will ultimately extract itself into the sphere nodes This means there is a way for the 3 variables of xyz rotations, to map to the 2 spherical variables of inclination and ascension. <br>
+	Therefore 
+	
+<h2> Console Logs </h2>
+RefDotFive.js has "ERROR HERE" in the DotRegister's fetch function when -1 is returned. The printstack should be fully reinstalled to help with finding out where random references are beeing passed. <br>
+
+    </html>
