@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-gray-900 text-gray-200">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Temporal Engine Workbench made by Google Gemini, mangled by moi</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Simple styling for the log */
+        #log {
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.8rem;
+            line-height: 1.2;
+            color: #16a34a; /* Green text */
+            background-color: #020617; /* Black */
+            border-color: #374151; /* Gray border */
+        }
+    </style>
+</head>
+<body class="h-full font-sans p-6 md:p-10">
+    <div class="flex flex-col h-full max-w-7xl mx-auto">
+        <header class="pb-4 border-b border-gray-700">
+            <h1 class="text-3xl font-bold tracking-tight text-white">Temporal Engine Workbench</h1>
+            <p class="mt-1 text-lg text-gray-400">The <span class="font-medium text-yellow-300">Temporal "Single-Array" Engine</span>. (v3)</p>
+        </header>
+
+        <main class="flex flex-col md:flex-row flex-1 gap-6 mt-6 min-h-0">
+            <!-- Left Column: Controls & Log -->
+            <div class="flex flex-col md:w-1/3 space-y-4">
+                <h2 class="text-xl font-semibold text-white">Controls</h2>
+                <div class="grid grid-cols-2 gap-3">
+                    <button id="startBtn" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-all">Start Simulation</button>
+                    <button id="stopBtn" class="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-all">Stop</button>
+                </div>
+                <div class="flex-1 flex flex-col min-h-0">
+                    <h2 class="text-xl font-semibold text-white mb-2">Simulation Log</h2>
+                    <textarea id="log" readonly class="w-full flex-1 rounded-lg border-2 p-3"></textarea>
+                </div>
+            </div>
+
+            <!-- Right Column: Visualization -->
+            <div class="flex flex-col md:w-2/3 min-h-0">
+                <div class_id="canvas-container" class="border-2 border-gray-700 rounded-lg bg-gray-800 p-4 h-full">
+                    <div>
+                        <h2 class="text-xl font-semibold text-white">Engine (v3)</h2>
+                        <p class="text-sm text-gray-400">This engine doesn't use your "single-array" and "sliding-index" model. It calls `Date.now()` and compensates for lag by modifying the 5D `wait_duration`.</p>
+                        <canvas id="simulationCanvas" class="w-full h-96 bg-black rounded-md mt-4"></canvas>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script type="module">
+        // --- Shared Components ---
+        const logEl = document.getElementById('log');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const simCtx = document.getElementById('simulationCanvas').getContext('2d');
+
+        let animationFrameId = null;
+        let originTime = 0; // The 'origin_T'
+        
+        // This is our 'time()' wrapper
+        function getPresentTime() {
+            if (originTime === 0) return 0; // Not started
+            return Date.now() - originTime;
+        }
+        
+       function logMessage(msg) {
+            const time = (getPresentTime() / 1000.0).toFixed(3);
+            logEl.value += `[t=${time}s] ${msg}<br>`;
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+   
+       function     draw(line, progress) {
+                simCtx.fillStyle = '#22c55e'; // Green
+                simCtx.globalAlpha = 0.8;
+                const y = (line.id * 10) + 10;
+                const p = (progress);
+                simCtx.fillRect(p * simCtx.canvas.width - 2, y, 4, 8);
+            }
+ 
+
+/**
+ * Step 1: Temporal_Thing
+ *
+ * This class represents a single object with a 4D "duration" (its active
+ * life) and a 5D "delay" (its latent, "insurance" period).
+ *
+ * Your Cartesian Plane Analogy:
+ * - An object is EITHER in "delay" (on the y-axis).
+ * - OR it is in "duration" (on the x-axis).
+ * - They are sequential: the 'end_of_delay' IS the 'start_of_duration'.
+ */
+class Temporal_Thing {
+    constructor(duration, delay, idd=2) {
+		this.id = idd;
+        // --- 4D/5D Axioms (The "pure" virtual values) ---
+        this.duration = duration || 0; // 4D Element
+        this.delay = delay || 0;     // 5D Element (the "insurance")
+
+        // --- "Real World" Projected State ---
+ 
+        // The "Delay" Phase (Y-Axis)
+        this.start_of_delay = 0;
+        this.end_of_delay = 0;
+
+        // The "Duration" Phase (X-Axis)
+        this.start_of_duration = 0;
+        this.end_of_duration = 0;
+        
+        // These are the "reality" variables you added,
+        // which get updated when progress is checked.
+        this.delay_remaining = 0; 
+        this.duration_remaining = 0;
+    }
+
+    /**
+     * Schedules the *entire* next cycle (delay + duration).
+     * This is the "reaction" function.
+     * @param {number} cycle_start_time - The "real-world" time (from Date.now())
+     * that the *delay* phase begins.
+     * @param {number} compensated_delay - The "real-world" compensated delay
+     * (axiom_delay - lag_error).
+     */
+    schedule_next_cycle(cycle_start_time, compensated_delay) {
+        // 1. Set the "Delay" Phase (Y-Axis)
+        this.start_of_delay = cycle_start_time;
+        // Ensure delay is not negative, but allow 0
+        const effective_delay = Math.max(0, compensated_delay);
+        this.end_of_delay = this.start_of_delay + effective_delay;
+
+        // 2. Set the "Duration" Phase (X-Axis)
+        // This is the CRITICAL LINK: The "duration" starts when the "delay" ends.
+        this.start_of_duration = this.end_of_delay;
+ 
+        this.end_of_duration = this.start_of_duration + this.duration; 
+    }
+
+    /**
+     * Renamed from 'get_remainingDelay'.
+     * Returns the *progress* (0.0 to 1.0) through the *delay* phase.
+     * Returns 0 if not currently in the delay phase.
+     */
+    get_progressDelay(present) {
+        // We use 'end_of_delay' to get the compensated duration
+        const compensated_delay = this.end_of_delay - this.start_of_delay;
+        if (present < this.start_of_delay || present >= this.end_of_delay || compensated_delay <= 0) {
+            this.delay_remaining = 0; // Not in delay, so 0 remaining
+            return 0; 
+        }
+        // This is your "reality" variable update.
+ 
+        this.delay_remaining = present - this.start_of_delay; 
+        const progress = this.delay_remaining / compensated_delay;
+        return Math.min(1.0, Math.max(0.0, progress));
+    }
+
+    /**
+     * Renamed from 'get_remainingDuration'.
+     * Returns the *progress* (0.0 to 1.0) through the *duration* (active) phase.
+     * Returns 0 if not currently in the duration phase.
+     */
+    get_progressDuration(present) {
+        if (present < this.start_of_duration || present >= this.end_of_duration || this.duration <= 0) {
+            this.duration_remaining = 0; // Not active, so 0 remaining
+            return 0;
+        }
+        // This is your "reality" variable update.
+        this.duration_remaining = present - this.start_of_duration; 
+			
+        const progress = this.duration_remaining / this.duration;
+        return Math.min(1.0, Math.max(0.0, progress));
+    }
+    
+    /**
+     * A simple check to see if the object is in its "duration" (active) phase.
+     * This is what the LERP function will check.
+     */
+    isActive(present) {
+        return (present >= this.start_of_duration && present < this.end_of_duration);
+    }
+
+    /**
+     * A simple check to see if the object's "duration" has finished.
+     * This is what the "reaction" function will check.
+     */
+    isFinished(present) {
+        return (present >= this.end_of_duration);
+    }
+}
+
+// --- Step 2: The "Two-Array" Manager ---
+// This class implements your "latent" and "active" array concept.
+class Temporal_Array {
+    constructor() {
+        // The "Latent" list, sorted by 'start_of_duration' (ascending)
+        this.latent = [];
+        
+        // The "Active" list, sorted by 'end_of_duration' (ascending)
+        // This is "objectively fair"
+        this.active = [];
+    }
+
+    /**
+     * Inserts a "thing" into the LATENT array,
+     * sorted by 'start_of_duration'.
+     */
+    insertLatent(thing) {
+        // --- O(log N) Binary Search ---
+        let low = 0;
+        let high = this.latent.length;
+
+        while (low < high) {
+            const mid = Math.floor((low + high) / 2);
+            if (this.latent[mid].start_of_duration < thing.start_of_duration) {
+                low = mid + 1;
+            } else {
+                high = mid;
+            }
+        }
+        const index = low;
+        // --- End Binary Search ---
+
+        if (index === this.latent.length) {
+            this.latent.push(thing);
+        } else {
+            this.latent.splice(index, 0, thing);
+        }
+    }
+    
+    /**
+     * Inserts a "thing" into the ACTIVE array,
+     * sorted by 'end_of_duration'.
+     */
+    insertActive(thing) {
+        // --- O(log N) Binary Search ---
+        let low = 0;
+        let high = this.active.length;
+
+        while (low < high) {
+            const mid = Math.floor((low + high) / 2);
+            if (this.active[mid].end_of_duration < thing.end_of_duration) {
+                low = mid + 1;
+            } else {
+                high = mid;
+            }
+        }
+        const index = low;
+        // --- End Binary Search ---
+        
+        if (index === this.active.length) {
+            this.active.push(thing);
+        } else {
+            this.active.splice(index, 0, thing);
+        }
+    }
+
+    /**
+     * This is the "Reaction" function.
+     * It's called by the 'tick' loop when a 'thing' is finished.
+     * It performs the "Temporal" lag compensation.
+     */
+    particle_Hit(thing, present_time) {
+        // 1. Calculate the "error" (lag).
+        // This is the "real" time minus the "allotted" time.
+        const error = present_time - thing.end_of_duration;
+
+        // 2. Calculate the "compensated" delay.
+        // This is the "insurance" (axiom) minus the "error" (lag).
+        const compensated_delay = thing.delay - error;
+        
+        // 3. Schedule the *next* full cycle.
+        // The next cycle's *delay* starts at the *allotted end time*.
+        const next_cycle_start_time = thing.end_of_duration;
+        thing.schedule_next_cycle(next_cycle_start_time, compensated_delay);
+
+        // 4. Re-insert the thing into the "latent" array.
+        this.insertLatent(thing);
+    }
+    
+    /**
+     * This is the master "tick" for our merged engine.
+     * It runs in two clean phases.
+     *
+     * @param {number} present_time - The "real" time (from Date.now())
+     * @param {function} render_Callback - The function to call to LERP/draw.
+     */
+    tick(present_time, render_Callback) {
+        
+        // --- Phase 1: Activation --- 
+        while (this.latent.length > 0 && 
+               this.latent[0].start_of_duration <= present_time) {
+             
+            const thing_to_activate = this.latent.shift();
+             
+            this.insertActive(thing_to_activate);
+        }
+
+        // --- Phase 2: Reaction & Rendering --- 
+         
+        for (let i = 0; i < this.active.length; i++) {
+            const thing = this.active[i];
+
+            // --- Case 1: Thing is FINISHED (Reaction) ---
+            if (thing.isFinished(present_time)) {
+                 
+                this.active.splice(i, 1);
+                 
+                this.particle_Hit(thing, present_time);
+ 
+                i--;
+                continue; 
+            }
+
+            // --- Case 2: Thing is ACTIVE (Render) --- 
+            if (thing.isActive(present_time)) {
+                const progress = thing.get_progressDuration(present_time);
+                render_Callback(thing, progress);
+            }
+             
+        }
+    }
+}
+
+// --- Step 3: The Engine "Interface" ---
+// This is the final, thin wrapper that connects our
+// Temporal_Array to the "real world" (e.g., requestAnimationFrame).
+class Temporal_Engine {
+    constructor(render_Callback) {
+        this.temporal_array = new Temporal_Array();
+        this.origin_T = 0; // The 'Date.now()' when the simulation started
+        this.animationFrameId = null;
+        
+        // The LERP/draw function
+        this.render_Callback = render_Callback; 
+        
+        // Bind the 'tick' method so 'this' is correct
+        // when requestAnimationFrame calls it.
+        this.tick = this.tick.bind(this);
+    }
+
+    /**
+     * This is our time() wrapper.
+     * It gets the "real" time, aligned to our origin.
+     */
+    getPresentTime() {
+        if (this.origin_T === 0) return 0;
+        return Date.now() - this.origin_T;
+    }
+    
+    /**
+     * Add a 'thing' to the engine.
+     * We must "schedule" its first cycle.
+     */
+    addThing(thing, initial_start_time) {
+        // We use the "axiom" delay for the first cycle
+        const compensated_delay = thing.delay; 
+        thing.schedule_next_cycle(initial_start_time, compensated_delay);
+        this.temporal_array.insertLatent(thing);
+    }
+    
+    /**
+     * This is the "master" loop that runs every frame.
+     */
+    tick() {
+        // 1. Get the "real" time snapshot.
+        const present_time = this.getPresentTime();
+        
+        // 2. Pass the "real" time to the temporal array,
+        //    which will run all its logic.
+        this.temporal_array.tick(present_time, this.render_Callback);
+        
+        // 3. Keep the loop going.
+        this.animationFrameId = requestAnimationFrame(this.tick);
+    }
+    
+    start() {
+        if (this.animationFrameId) return; // Already running
+        this.origin_T = Date.now();
+        this.animationFrameId = requestAnimationFrame(this.tick);
+    }
+    
+    stop() {
+        if (!this.animationFrameId) return; // Already stopped
+        cancelAnimationFrame(this.animationFrameId);
+        this.animationFrameId = null;
+    }
+}
+
+        // --- Main Setup & Loop ---
+        const simulationEngine = new Temporal_Engine(draw);
+startBtn.addEventListener('click', () => {simulationEngine.start();});
+stopBtn.addEventListener('click', () => {simulationEngine.stop();});
+        function setup() {
+            logMessage("Temporal Engine (v3) initialized.");
+            const lines = [
+                new Temporal_Thing(1000, 2000,2 ),  
+                new Temporal_Thing(1500, 1000,3 ),
+                new Temporal_Thing(3000, 500,7 ),
+                new Temporal_Thing(500, 4000,11 ) 
+            ];
+            console.log(`first item in lines is ${typeof lines[0]} and it is ${JSON.stringify(lines[0])}`);
+            lines.forEach(thng => { simulationEngine.addThing(thng, thng.start_of_duration);}); 
+            
+            simCtx.canvas.width = simCtx.canvas.clientWidth;
+            simCtx.canvas.height = simCtx.canvas.clientHeight;
+        }
+
+        function mainLoop() {
+            if (!animationFrameId) return; // Stopped
+            
+            // This is the "master" loop. It calls 'tick'
+            // with the "real" time.
+            simulationEngine.tick(getPresentTime());
+
+            animationFrameId = requestAnimationFrame(mainLoop);
+        }
+
+ 
+        // Initialize
+        setup();
+
+    </script>
+	<code >
+	
+
+The State_Engine is the interface between the Conceptually virtual world of lines and particles, and the real world of milliseconds and HTML.canvas. <br><br>We'll give the illustration first: <br><br>```Virtual_world: [Point A] -> [Line Z, duration d] -> [Point B @ t=d] -> [Reprogram, t=2] -> [Point B @ t=d+2] -> [Line Z, duration d] -> [Point A @ t=d+d]```<br><br>Notice that conceptually-virtual time at the end of the 'bounce' is t=2*d ; <br><br>Now Let's illustrate the real world: <br><br>```Real_world [Point A] -> [Line Z, duration 1000] -> [Point B @ t=d] -> [Reprogram, t=200] -> [Point B @ t=1200] -> [Line Z, duration 800] -> [Point A @ t=2000]``` <br><br>The Temporal State_Engine, has 2 Arrays of lines. <br><br><br>Binary_search_extract(Line_identifying_quantity){<br>//...<br>return identified_line_instance;<br>}<br>Binary_search_insert(line_instance_to_insert){<br>//...<br>}<br><br>Five_Dimensions_State_Engine.constructor(All_Lines[]){<br>//Statistically_Verified_Constants<br>this.origin_T = Date.now();<br>this.pixel_to_millisecond_ratio = 1000; (i.e: speed of the engine)<br><br>All_Lines.forEach(line, () => {Binary_Search_Insert(State_Engine.latent, line, line.wait_duration) ;} // destination, source, parameter<br><br>this.get_present_time = function () {return  (Date.now() - this.origin_T);};<br><br>this.active_index = 0;//We use one array, and this.active_index is the location of the first latest line to start. <br>this.startExecution();<br>}<br>Five_Dimensions_State_Engine.startExecution(){<br>this.latent.forEach((line, i), () => { <br>line.start.t = Date.now(); line.end.t = Date.now() + line.duration; <br>if(line.wait_duration < 0 ){ line.wait_duration %= (-1 * line.duration); <br>//If the wait_duration is negative, then this implies that the thing already started a while ago, many iterations ago. <br>}<br><br>if(line.wait_duration <= this.get_present_time()){ this.active_index = i;}	<br>}<br>Five_Dimensions_State_Engine.renderActive();<br>}<br><br>Five_Dimensions_State_Engine.drawLine(LineMuse){<br>//draws a line.<br>}<br><br>Five_Dimensional_Line::fiveDimensional_to_threeDimensional_LERP(present_in_milliseconds){<br>Parametric_time = present_in_milliseconds - this.start_point.time; <br>3Dend_point = parametric_3D_from_t(Parametric_time);<br>return Three_dimensional_Line(this.start_point, 3Dend_point);<br><br>}<br><br>Five_Dimensions_State_Engine.LERP_a_line(line){<br>//locates the line at Date.now();<br>if(line.start.t <= Date.now() < line.end.t){<br>3Dline = line.fiveDimensional_to_threeDimensional_LERP(Date.now());<br>this.drawLine(3Dline);<br>return;<br>}elseif(Date.now() >= line.end.t){<br>Five_Dimensional_particle_Hit(line, line.end); <br><br>}<br>}<br><br>Five_Dimensions_State_Engine.renderActive(){<br><br>for(i = this.active_index; i < this.latent.length; i++){<br>	this.LERP_a_line(this.latent[i]);<br>}<br><br>}<br><br>Five_dimensional_particle_Hit(line_Path, Particle_Which_was_reached){<br>line_Path_to_Repurpose = Binary_search_extract(line_Path);<br>var spare_register = line_Path_to_Repurpose.start;<br>line_Path_to_Repurpose.start = line_Path_to_Repurpose.end; <br>line_Path_to_Repurpose.end = spare_register;<br>//error line, sorry. line_Path_to_Repurpose.start.t += line_Path_to_Repurpose.duration; <br>line_Path_to_Repurpose.end.t = line_Path_to_Repurpose.start.t + line_Path_to_Repurpose.duration; // this code is here for argumentation clarity, and can easily be made efficient when actually employed. <br><br>line_Path_to_Repurpose.start.w = 0; line_Path_to_Repurpose.end.w = line_Path_to_Repurpose.wait_duration; <br><br>//Now we know that the wait_duration is as a buffer of latency, if it exists. <br>//So we move the wait_Duration by the overflow according to Date.now() in relation to ```spare_register.t +=  line_Path_to_Repurpose.duration; ```<br>line_Path_to_repurpose.start.wait_duration += (Date.now() - spare_register.t +=  line_Path_to_Repurpose.duration);<br>//If we have blown our temporal budget then date.now is greater than the expected duration of start+duration,  so start.wait_duration shifts to the right, while end.wait_duration remains the same, so the calculated wait_duration is less  . If we have surpassed our expectation somehow, then Date.now() is less than expected duration , and wait_duration is elongated. <br>//But we must try to preserve the values of the fifth dimensional value. So at the start of this function we reset the fifth dimensional values of start and end. <br>Binary_Search_Insert(line_Path_to_Repurpose);<br>} <br><br><br><br>============<br>//The function Five_Dimensional_particle_Hit( line_arg) faciliates the transition of line_arg from 'stage 1' to 'stage 2'. 'stage 1' is forward. 'stage 2' is backward. <br>// Date.now() = 1001200 which triggered the invocation to Five_Dimensional_particle_Hit()<br>//and let's say line.wait_Duration = 1000; <br><br>function Five_dimensional_particle_Hit(line_Path, Particle_Which_was_reached){<br>line_Path_to_Repurpose = Binary_search_extract(line_Path);<br>spare_register = line.start; 	//Stage 1  start.t = 1000000; start.wait_Duration = 1000; <br>line.start = line.end; 			//STAGE 2  START.T 	= 	1001000;//ONE MILLION AND ONE THOUSAND.<br>line.start += line.wait_duration; //Need to include the wait_duration. //START.t = 1002000;  <br> line.end = spare_register;     //stage 2  END.T 	= 	1000000;//ONE MILLION <br> line.end.t = line.start.t + line.duration; //duration was preserved as static constant dependent on radius this.distance. //end.t = 1003000<br> //now line is stage 2, but duration and wait_duration has not been set.<br>// Let's assume:<br>// 1. The line was supposed to end at t=1000<br>//    (spare_register.t + line_Path_to_Repurpose.duration) = 1000<br>// 2. The browser lagged. Date.now() is 1030.<br>// 3. The virtual wait_duration is 200.<br><br>line_Path_to_repurpose.start.wait_duration -= (Date.now() - (spare_register.t + line_Path_to_Repurpose.duration)); <br>//line is a line instance. line:{start: 5vector, end: 5vector, distance: number, t: number, wait_duration: number} . and start is point . 5vector: {x: number, y: number, z: number, t: number, wait_duration: number} . and line.duration = line.end.t - line.start.t; line.wait_duration = line.start.wait_duration; <br>//So we expected the Stage 1 to end at (spare_register.t + line.duration); <br>//But, `Date.now() - (spare_register.t + line.duration)`  Evaluates to a positive value of 200+500 = 700; <br>//So then <br>line_Path.start.wait_Duration = line_Path.wait_duration - ( Date.now() - (spare_register.t + line_Path.duration)); //wait duration = 300ms; <br>//line.wait_duration is also a constant value, dependent on radius distance. <br>//<br>Binary_Search_Insert(line_Path_to_Repurpose);<br>}</code ><br>	</body><br>	</html>
