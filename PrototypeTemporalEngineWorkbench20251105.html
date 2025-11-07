@@ -75,6 +75,7 @@
 
    
        function     draw(line, progress) {
+		   
                 simCtx.fillStyle = '#22c55e'; // Green
                 simCtx.globalAlpha = 0.8;
                 const y = (line.id * 10) + 10;
@@ -259,6 +260,32 @@ class Temporal_Array {
     }
 
     /**
+     * This is the "Calculator" for mega-lag.
+     * It "catches up" a thing's state by fast-forwarding
+     * it to the 'present_time'.
+     */
+    fast_forward_thing(thing, present_time) {
+        const cycle_time = thing.duration + thing.delay;
+        if (cycle_time <= 0) return; // Avoid division by zero
+        
+        // Calculate how many *full cycles* were missed
+        const time_since_start = present_time - thing.start_of_delay;
+        const multiple = Math.floor(time_since_start / cycle_time);
+   logMessage(`inside fast forward : time_since_start = ${time_since_start}`);
+        if (multiple > 0) {
+            // It has missed at least one cycle.
+            // We "teleport" its virtual start time forward.
+            const new_start_of_delay = thing.start_of_delay + (multiple * cycle_time);
+            
+            // Re-schedule it based on this new *virtual* time
+            // We use the "axiom" delay, as the "lag" is so big
+            // the compensation is irrelevant.
+            thing.schedule_next_cycle(new_start_of_delay, thing.delay);
+	logMessage(`given multiples inside fastforward ${new_start_of_delay}`);		
+        }
+    }
+
+    /**
      * This is the "Reaction" function.
      * It's called by the 'tick' loop when a 'thing' is finished.
      * It performs the "Temporal" lag compensation.
@@ -281,46 +308,88 @@ class Temporal_Array {
         this.insertLatent(thing);
     }
     
-    /**
+  /**
      * This is the master "tick" for our merged engine.
-     * It runs in two clean phases.
+     * It now handles 'delta_time' to detect mega-lag.
      *
      * @param {number} present_time - The "real" time (from Date.now())
+     * @param {number} delta_time - The time *since the last tick*
      * @param {function} render_Callback - The function to call to LERP/draw.
      */
-    tick(present_time, render_Callback) {
+    tick(present_time, delta_time, render_Callback) {
         
-        // --- Phase 1: Activation --- 
+                simCtx.clearRect(0, 0, simCtx.canvas.width, simCtx.canvas.height);
+        // --- Phase 1: Activation ---
+        // Move "ready" things from 'latent' to 'active'
+        // This is the "catch-up" loop for activations.
         while (this.latent.length > 0 && 
                this.latent[0].start_of_duration <= present_time) {
-             
+            
             const thing_to_activate = this.latent.shift();
-             
-            this.insertActive(thing_to_activate);
+            
+            // --- MEGA-LAG CHECK (Activation) ---
+            // This is the "Calculator" logic you wanted.
+            // If the *entire* duration has passed since the last
+            // tick, we must "fast-forward" it.
+            const cycle_time = thing_to_activate.duration + thing_to_activate.delay;
+            if (delta_time >= cycle_time) {
+                // This thing might have cycled *multiple times*
+                // while it was "latent".
+                this.fast_forward_thing(thing_to_activate, present_time);
+            }
+            
+            // Now, we check its *new* (fast-forwarded) state.
+            if (thing_to_activate.start_of_duration <= present_time) {
+                // It's still ready to be active
+                this.insertActive(thing_to_activate);
+            } else {
+                // The "fast-forward" pushed it *back* into the
+                // future. Re-insert it as "latent".
+                this.insertLatent(thing_to_activate);
+            }
         }
 
-        // --- Phase 2: Reaction & Rendering --- 
-         
-        for (let i = 0; i < this.active.length; i++) {
+        // --- Phase 2: Reaction & Rendering ---
+        // This loop is "objectively fair"
+        for (let i = this.active.length - 1; i >= 0;  i--) {
             const thing = this.active[i];
 
-            // --- Case 1: Thing is FINISHED (Reaction) ---
-            if (thing.isFinished(present_time)) {
-                 
+            // --- MEGA-LAG CHECK (Reaction) ---
+            // This is the "Calculator" logic for the active list.
+            const cycle_time = thing.duration + thing.delay;
+            if (delta_time >= cycle_time) {
+                // The browser froze for a whole cycle.
+                // We must "fast-forward" this thing.
                 this.active.splice(i, 1);
+                this.fast_forward_thing(thing, present_time);
+
+                // Now, check its *new* (fast-forwarded) state.
+                if (thing.start_of_duration <= present_time) {
+                    this.insertActive(thing);
+                } else {
+                    this.insertLatent(thing);
+                }
                  
+                continue;
+            }
+            
+            // --- NORMAL FINISH (Reaction) ---
+            // This is the "semantically-obtuse" check,
+            // but it's now "safe" because we've handled
+            // the mega-lag case first.
+            if (thing.end_of_duration <= present_time) {
+                this.active.splice(i, 1);
                 this.particle_Hit(thing, present_time);
- 
                 i--;
                 continue; 
             }
 
-            // --- Case 2: Thing is ACTIVE (Render) --- 
-            if (thing.isActive(present_time)) {
-                const progress = thing.get_progressDuration(present_time);
-                render_Callback(thing, progress);
-            }
-             
+            // --- NORMAL RENDER ---
+            // If it wasn't mega-lagged and wasn't finished,
+            // it must be "active" and ready to render.
+            // (We could add the isActive check for safety)
+            const progress = thing.get_progressDuration(present_time);
+            render_Callback(thing, progress);
         }
     }
 }
@@ -333,7 +402,8 @@ class Temporal_Engine {
         this.temporal_array = new Temporal_Array();
         this.origin_T = 0; // The 'Date.now()' when the simulation started
         this.animationFrameId = null;
-        
+               // to detect the "delta_time".
+        this.last_present_time = 0; 
         // The LERP/draw function
         this.render_Callback = render_Callback; 
         
@@ -361,30 +431,52 @@ class Temporal_Engine {
         thing.schedule_next_cycle(initial_start_time, compensated_delay);
         this.temporal_array.insertLatent(thing);
     }
-    
-    /**
+	
+   /**
      * This is the "master" loop that runs every frame.
+     * It is now "mega-lag" aware.
      */
     tick() {
         // 1. Get the "real" time snapshot.
         const present_time = this.getPresentTime();
         
-        // 2. Pass the "real" time to the temporal array,
-        //    which will run all its logic.
-        this.temporal_array.tick(present_time, this.render_Callback);
+        // 2. Calculate the "delta_time" (the "mega-lag").
+        const delta_time = present_time - this.last_present_time;
         
-        // 3. Keep the loop going.
+        // 3. Pass *both* "real" time and "delta" time
+        //    to the "Calculator".
+        this.temporal_array.tick(present_time, delta_time, this.render_Callback);
+        
+        // 4. Remember this frame's time for the next tick.
+        this.last_present_time = present_time;
+        
+        // 5. Keep the loop going.
         this.animationFrameId = requestAnimationFrame(this.tick);
     }
     
     start() {
         if (this.animationFrameId) return; // Already running
-        this.origin_T = Date.now();
+if(this.origin_T == 0){        this.origin_T = Date.now();}
+        this.last_present_time = this.getPresentTime();
+		
+            logMessage(`Start at ${this.last_present_time}`);
+
+
+if(this.temporal_array.active.length) logMessage(`2 lines are Active: [start_of_duration: ${this.temporal_array.active[0].start_of_duration} end_of_duration:${this.temporal_array.active[0].end_of_duration} Start_of_delay:${this.temporal_array.active[0].start_of_delay} End_of_delay:${this.temporal_array.active[0].end_of_delay}] \n`);
+
+if(this.temporal_array.latent.length) logMessage(`		Latent [start_of_duration: ${this.temporal_array.latent[0].start_of_duration} end_of_duration:${this.temporal_array.latent[0].end_of_duration} start_of_delay:${this.temporal_array.latent[0].start_of_delay}  end_of_delay:${this.temporal_array.latent[0].end_of_delay}] \n  `);
         this.animationFrameId = requestAnimationFrame(this.tick);
     }
     
     stop() {
         if (!this.animationFrameId) return; // Already stopped
+		logMessage(`Stopped at ${this.last_present_time}`);
+
+
+if(this.temporal_array.active.length) logMessage(`2 lines are Active: [start_of_duration: ${this.temporal_array.active[0].start_of_duration} end_of_duration:${this.temporal_array.active[0].end_of_duration} Start_of_delay:${this.temporal_array.active[0].start_of_delay} End_of_delay:${this.temporal_array.active[0].end_of_delay}] \n`);
+
+if(this.temporal_array.latent.length) logMessage(`		Latent [start_of_duration: ${this.temporal_array.latent[0].start_of_duration} end_of_duration:${this.temporal_array.latent[0].end_of_duration} start_of_delay:${this.temporal_array.latent[0].start_of_delay}  end_of_delay:${this.temporal_array.latent[0].end_of_delay}] \n  `);
+
         cancelAnimationFrame(this.animationFrameId);
         this.animationFrameId = null;
     }
@@ -398,9 +490,9 @@ stopBtn.addEventListener('click', () => {simulationEngine.stop();});
             logMessage("Temporal Engine (v3) initialized.");
             const lines = [
                 new Temporal_Thing(1000, 2000,2 ),  
-                new Temporal_Thing(1500, 1000,3 ),
-                new Temporal_Thing(3000, 500,7 ),
-                new Temporal_Thing(500, 4000,11 ) 
+               // new Temporal_Thing(1500, 1000,3 ),
+               // new Temporal_Thing(3000, 500,7 ),
+               // new Temporal_Thing(500, 4000,11 ) 
             ];
             console.log(`first item in lines is ${typeof lines[0]} and it is ${JSON.stringify(lines[0])}`);
             lines.forEach(thng => { simulationEngine.addThing(thng, thng.start_of_duration);}); 
@@ -408,23 +500,11 @@ stopBtn.addEventListener('click', () => {simulationEngine.stop();});
             simCtx.canvas.width = simCtx.canvas.clientWidth;
             simCtx.canvas.height = simCtx.canvas.clientHeight;
         }
-
-        function mainLoop() {
-            if (!animationFrameId) return; // Stopped
-            
-            // This is the "master" loop. It calls 'tick'
-            // with the "real" time.
-            simulationEngine.tick(getPresentTime());
-
-            animationFrameId = requestAnimationFrame(mainLoop);
-        }
-
+ 
  
         // Initialize
         setup();
 
-    </script>
-	<code >
-	
-
-The State_Engine is the interface between the Conceptually virtual world of lines and particles, and the real world of milliseconds and HTML.canvas. <br><br>We'll give the illustration first: <br><br>```Virtual_world: [Point A] -> [Line Z, duration d] -> [Point B @ t=d] -> [Reprogram, t=2] -> [Point B @ t=d+2] -> [Line Z, duration d] -> [Point A @ t=d+d]```<br><br>Notice that conceptually-virtual time at the end of the 'bounce' is t=2*d ; <br><br>Now Let's illustrate the real world: <br><br>```Real_world [Point A] -> [Line Z, duration 1000] -> [Point B @ t=d] -> [Reprogram, t=200] -> [Point B @ t=1200] -> [Line Z, duration 800] -> [Point A @ t=2000]``` <br><br>The Temporal State_Engine, has 2 Arrays of lines. <br><br><br>Binary_search_extract(Line_identifying_quantity){<br>//...<br>return identified_line_instance;<br>}<br>Binary_search_insert(line_instance_to_insert){<br>//...<br>}<br><br>Five_Dimensions_State_Engine.constructor(All_Lines[]){<br>//Statistically_Verified_Constants<br>this.origin_T = Date.now();<br>this.pixel_to_millisecond_ratio = 1000; (i.e: speed of the engine)<br><br>All_Lines.forEach(line, () => {Binary_Search_Insert(State_Engine.latent, line, line.wait_duration) ;} // destination, source, parameter<br><br>this.get_present_time = function () {return  (Date.now() - this.origin_T);};<br><br>this.active_index = 0;//We use one array, and this.active_index is the location of the first latest line to start. <br>this.startExecution();<br>}<br>Five_Dimensions_State_Engine.startExecution(){<br>this.latent.forEach((line, i), () => { <br>line.start.t = Date.now(); line.end.t = Date.now() + line.duration; <br>if(line.wait_duration < 0 ){ line.wait_duration %= (-1 * line.duration); <br>//If the wait_duration is negative, then this implies that the thing already started a while ago, many iterations ago. <br>}<br><br>if(line.wait_duration <= this.get_present_time()){ this.active_index = i;}	<br>}<br>Five_Dimensions_State_Engine.renderActive();<br>}<br><br>Five_Dimensions_State_Engine.drawLine(LineMuse){<br>//draws a line.<br>}<br><br>Five_Dimensional_Line::fiveDimensional_to_threeDimensional_LERP(present_in_milliseconds){<br>Parametric_time = present_in_milliseconds - this.start_point.time; <br>3Dend_point = parametric_3D_from_t(Parametric_time);<br>return Three_dimensional_Line(this.start_point, 3Dend_point);<br><br>}<br><br>Five_Dimensions_State_Engine.LERP_a_line(line){<br>//locates the line at Date.now();<br>if(line.start.t <= Date.now() < line.end.t){<br>3Dline = line.fiveDimensional_to_threeDimensional_LERP(Date.now());<br>this.drawLine(3Dline);<br>return;<br>}elseif(Date.now() >= line.end.t){<br>Five_Dimensional_particle_Hit(line, line.end); <br><br>}<br>}<br><br>Five_Dimensions_State_Engine.renderActive(){<br><br>for(i = this.active_index; i < this.latent.length; i++){<br>	this.LERP_a_line(this.latent[i]);<br>}<br><br>}<br><br>Five_dimensional_particle_Hit(line_Path, Particle_Which_was_reached){<br>line_Path_to_Repurpose = Binary_search_extract(line_Path);<br>var spare_register = line_Path_to_Repurpose.start;<br>line_Path_to_Repurpose.start = line_Path_to_Repurpose.end; <br>line_Path_to_Repurpose.end = spare_register;<br>//error line, sorry. line_Path_to_Repurpose.start.t += line_Path_to_Repurpose.duration; <br>line_Path_to_Repurpose.end.t = line_Path_to_Repurpose.start.t + line_Path_to_Repurpose.duration; // this code is here for argumentation clarity, and can easily be made efficient when actually employed. <br><br>line_Path_to_Repurpose.start.w = 0; line_Path_to_Repurpose.end.w = line_Path_to_Repurpose.wait_duration; <br><br>//Now we know that the wait_duration is as a buffer of latency, if it exists. <br>//So we move the wait_Duration by the overflow according to Date.now() in relation to ```spare_register.t +=  line_Path_to_Repurpose.duration; ```<br>line_Path_to_repurpose.start.wait_duration += (Date.now() - spare_register.t +=  line_Path_to_Repurpose.duration);<br>//If we have blown our temporal budget then date.now is greater than the expected duration of start+duration,  so start.wait_duration shifts to the right, while end.wait_duration remains the same, so the calculated wait_duration is less  . If we have surpassed our expectation somehow, then Date.now() is less than expected duration , and wait_duration is elongated. <br>//But we must try to preserve the values of the fifth dimensional value. So at the start of this function we reset the fifth dimensional values of start and end. <br>Binary_Search_Insert(line_Path_to_Repurpose);<br>} <br><br><br><br>============<br>//The function Five_Dimensional_particle_Hit( line_arg) faciliates the transition of line_arg from 'stage 1' to 'stage 2'. 'stage 1' is forward. 'stage 2' is backward. <br>// Date.now() = 1001200 which triggered the invocation to Five_Dimensional_particle_Hit()<br>//and let's say line.wait_Duration = 1000; <br><br>function Five_dimensional_particle_Hit(line_Path, Particle_Which_was_reached){<br>line_Path_to_Repurpose = Binary_search_extract(line_Path);<br>spare_register = line.start; 	//Stage 1  start.t = 1000000; start.wait_Duration = 1000; <br>line.start = line.end; 			//STAGE 2  START.T 	= 	1001000;//ONE MILLION AND ONE THOUSAND.<br>line.start += line.wait_duration; //Need to include the wait_duration. //START.t = 1002000;  <br> line.end = spare_register;     //stage 2  END.T 	= 	1000000;//ONE MILLION <br> line.end.t = line.start.t + line.duration; //duration was preserved as static constant dependent on radius this.distance. //end.t = 1003000<br> //now line is stage 2, but duration and wait_duration has not been set.<br>// Let's assume:<br>// 1. The line was supposed to end at t=1000<br>//    (spare_register.t + line_Path_to_Repurpose.duration) = 1000<br>// 2. The browser lagged. Date.now() is 1030.<br>// 3. The virtual wait_duration is 200.<br><br>line_Path_to_repurpose.start.wait_duration -= (Date.now() - (spare_register.t + line_Path_to_Repurpose.duration)); <br>//line is a line instance. line:{start: 5vector, end: 5vector, distance: number, t: number, wait_duration: number} . and start is point . 5vector: {x: number, y: number, z: number, t: number, wait_duration: number} . and line.duration = line.end.t - line.start.t; line.wait_duration = line.start.wait_duration; <br>//So we expected the Stage 1 to end at (spare_register.t + line.duration); <br>//But, `Date.now() - (spare_register.t + line.duration)`  Evaluates to a positive value of 200+500 = 700; <br>//So then <br>line_Path.start.wait_Duration = line_Path.wait_duration - ( Date.now() - (spare_register.t + line_Path.duration)); //wait duration = 300ms; <br>//line.wait_duration is also a constant value, dependent on radius distance. <br>//<br>Binary_Search_Insert(line_Path_to_Repurpose);<br>}</code ><br>	</body><br>	</html>
+    </script> 
+<br>	</body>
+<br>	</html>
