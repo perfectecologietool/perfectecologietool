@@ -200,64 +200,55 @@ tdot = checkdotarg(tdot);
 
 
 depthdraw (Rhine){	
-Rhine = lr(checklinearg(Rhine));
-if(Rhine instanceof RefLine){}else{return;}
-//This is the portal for a line to reach the screen.		
-Rhine.refresh();
-let RivStr = dr(dr(Rhine.start).copyOfDot());
-let RivEnd = dr(dr(Rhine.end).copyOfDot());
-//copyOfDot an attempt to fix a mysterious incrementally hyperbolic addition
-RivStr.setX(RivStr.x + dr(this.observer).x);
-RivEnd.setX(RivEnd.x + dr(this.observer).x);
-RivStr.setY(RivStr.y + dr(this.observer).y);
-RivEnd.setY(RivEnd.y + dr(this.observer).y);
-RivStr.setZ(RivStr.z + dr(this.observer).z);
-RivEnd.setZ(RivEnd.z + dr(this.observer).z);
+        Rhine = lr(checklinearg(Rhine));
+        if(!(Rhine instanceof RefLine)){return;}
+        
+        Rhine.refresh(); 
+    let s = dr(Rhine.start);
+    let e = dr(Rhine.end); 
+	let o = dr(this.origin);
 
-//7 and with opposite = x or y,  then angle a is above
-// 0.4636476090008054=radians angle
-let realmspanse =  this.findoppositerightanglewithadjacentandoppositesangle(RivStr.z , 0.463647609000805);
-realmspanse *= 2;
-//8then ((opposite * 2) + viewerspan) = x at z ,  
-realmspanse += this.cwidth;
-//9 then the ratio(z)  = viewerspan / x(z)
-let realmspanseratio = this.cwidth/realmspanse;
-//11 once ratio(z) = canvas/spanse(z),  then for point (x,y,z), the x=0->x 
-//12 so ratio(z) * x = f(x)<x 
-let sx1 = RivStr.x * realmspanseratio;
-realmspanse = realmspanse - this.cwidth + this.cheight;
-realmspanseratio = this.cheight/realmspanse; 
-let sy1 = RivStr.y * realmspanseratio;
-// end point
-realmspanse = this.findoppositerightanglewithadjacentandoppositesangle(RivEnd.z , 0.463647609000805);
-realmspanse *= 2;
-//8then ((opposite * 2) + viewerspan) = x at z ,  
-realmspanse += this.cwidth;
-realmspanseratio = this.cwidth/realmspanse;
-let ex1 =   RivEnd.x * realmspanseratio;
-realmspanse = realmspanse - this.cwidth + this.cheight;
-realmspanseratio = this.cheight/realmspanse; 
-let ey1 = RivEnd.y * realmspanseratio; 
-var newlin = new RefLine(new RefDot(sx1,sy1,0), new RefDot(ex1,ey1,0));
- 
-newlin.colour = Rhine.colour; 
-newlin.siz = Rhine.siz;
-//printoutt("<br>depthdraw " + newlin.describeline());
+let sx = s.x + o.x;
+let sy = s.y + o.y;
+let sz = s.z + o.z; 
+    // End point (observer-shifted) 
+	
+let ex = e.x + o.x;
+let ey =  e.y + o.y;
+let ez =  e.z + o.z;
 
-if(  RivStr.atomic != -1){
-this.drawatom(sx1,
-sy1,
-RivStr.atomic * realmspanseratio,
- RivStr.colour);
-}
-if(RivEnd.atomic != -1){
-this.drawatom(ex1,ey1,RivEnd.atomic * realmspanseratio, RivEnd.colour);
-}
-this.drawaline(newlin);
-newlin.rubbish(1);
-RivStr.rubbish();
-RivEnd.rubbish();
-}
+    // Atomic radii + colours remain bound to original dots
+    let sAtomic = s.atomic;
+    let eAtomic = e.atomic;
+    let sColour = s.colour;
+    let eColour = e.colour;
+	
+        // Perspective projection logic
+        const angle = 0.4636476090008054; // Radians 
+		let realmspanse_end = this.findoppositerightanglewithadjacentandoppositesangle(sz , angle) * 2;
+        realmspanse_end += this.cwidth;
+         let ratio_start =  (this.cwidth / realmspanse_end);
+       
+        let sx1 = sx * ratio_start;
+        let sy1 = sy * (this.cheight / (realmspanse_start - this.cwidth + this.cheight));
+		
+		let realmspanse_end = this.findoppositerightanglewithadjacentandoppositesangle(ez , angle) * 2;
+        realmspanse_end += this.cwidth;
+         let ratio_end =  (this.cwidth / realmspanse_end);
+    	  
+        let ex1 = ex * ratio_end;
+        let ey1 = ey * (this.cheight / (realmspanse_end - this.cwidth + this.cheight)); 
+        
+        //for drawing.
+		this.drawaline(sx1,sy1,ex1,ey1,Rhine.colour, Rhine.siz);
+        if(sAtomic != -1){
+            this.drawatom(sx1, sy1, sAtomic * ratio_start , sColour);
+        }
+        if(eAtomic != -1){
+            this.drawatom(ex1, ey1, eAtomic * ratio_end  , eColour);
+        }
+         
+    }
 
 drawRegLine(RLineIndx){
 	var t1;
@@ -290,3 +281,4 @@ drawPixel(SD){
 }
 }//
 var globalviewerframe = new RefTimeViewerFrame();
+
