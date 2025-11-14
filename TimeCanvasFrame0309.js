@@ -115,20 +115,14 @@ this.ctx.fill();
 
 }
 
-   drawaline (addedrefline) {
-      //  dx1 = addedrefline.start.x; dy1 = addedrefline.start.y;
-        this.ctx.beginPath();
-        this.ctx.strokeStyle = addedrefline.colour; 
-        this.ctx.lineWidth = addedrefline.siz;
-        let uab = parseInt(this.origin.x) + parseInt(dr(addedrefline.start).x);
-        let nab = parseInt(this.origin.x) + parseInt(dr(addedrefline.end).x);
-        let uba = parseInt(this.origin.y) - parseInt(dr(addedrefline.start).y);
-        let nba = parseInt(this.origin.y) - parseInt(dr(addedrefline.end).y);
-                
-		this.ctx.moveTo(uab,uba );
-        this.ctx.lineTo(nab,nba);
-        this.ctx.stroke();   
-    }
+drawaline  (x1, y1, x2, y2, colour, size){
+    this.ctx.beginPath();
+    this.ctx.strokeStyle = colour;
+    this.ctx.lineWidth = size;
+    this.ctx.moveTo(x1, y1);
+    this.ctx.lineTo(x2, y2);
+    this.ctx.stroke();
+}
  
  depthPoint(RivStr){
 	 RivStr = checkdotarg(RivStr);
@@ -281,4 +275,5 @@ drawPixel(SD){
 }
 }//
 var globalviewerframe = new RefTimeViewerFrame();
+
 
